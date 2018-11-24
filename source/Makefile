@@ -48,7 +48,7 @@ all: $(TARGETS)
 #	$(CC) $(LDFLAGS) $<
 
 $(TARGETS) : $(OBJS)
-	$(CC) $(OBJS) $(LDFLAGS) -o $@
+	$(CC) $(OBJS) $(LDFLAGS) -o output/$@
 
 $(DEPENDS) : $(SOURCES)
 
