@@ -40,7 +40,7 @@ class MyDrawArea : public Gtk::DrawingArea
  public:
   MyDrawArea()
   {
-    set_size_request(500, 500);
+    set_size_request(600, 600);
 
     try
     {
