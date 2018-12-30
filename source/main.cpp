@@ -35,16 +35,34 @@
 #include <iostream>
 #include <gtkmm.h>
 
-class MyDrawArea : public Gtk::DrawingArea
+class MyDrawArea : public Gtk::DrawingArea, public Gtk::Scrollable
+//class MyDrawArea : public Gtk::DrawingArea
 {
- public:
+public:
+
   MyDrawArea()
+  : Glib::ObjectBase("my_draw_area")
   {
-    set_size_request(600, 600);
+    //set_has_window(false);
+
+    //Gtk::Scrollable::add_interface(Scrollable::get_type());
+
+    set_halign(Gtk::ALIGN_CENTER);
+    set_valign(Gtk::ALIGN_CENTER);
+
+    m_org_width = 250;
+    m_org_height = 249;
+    m_width = m_org_width;
+    m_height = m_org_height;
+    m_zoom = 100;
+    set_size_request(m_width, m_height);
+    add_events(Gdk::SCROLL_MASK);
+    //set_hscroll_policy(Gtk::ScrollablePolicy::SCROLL_MINIMUM);
+    //set_vscroll_policy(Gtk::ScrollablePolicy::SCROLL_MINIMUM);
 
     try
     {
-      m_pixbuf = Gdk::Pixbuf::create_from_file("./test.jpg");
+      m_pixbuf = Gdk::Pixbuf::create_from_file("./output/test.jpg");
     }
     catch(...)
     {
@@ -54,11 +72,12 @@ class MyDrawArea : public Gtk::DrawingArea
     //m_layout = create_pango_layout("");
     //m_layout->set_font_description(Pango::FontDescription("Serif 20"));
   }
+  Gtk::ScrolledWindow *m_scr_win;
 protected:
   bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override
   {
     Gdk::Cairo::set_source_color(cr, Gdk::Color("black"));
-    Gdk::Cairo::set_source_pixbuf(cr, m_pixbuf->scale_simple(200, 200, Gdk::INTERP_NEAREST), 0, 0);
+    Gdk::Cairo::set_source_pixbuf(cr, m_pixbuf->scale_simple(m_width, m_height, Gdk::INTERP_NEAREST), 0, 0);
     cr->paint();
 
   //get_window()->set_background(Gdk::Color("black");
@@ -70,27 +89,80 @@ protected:
     
     return true;
   }
+  virtual bool on_scroll_event(GdkEventScroll *event)
+  {
+    std::cout << "wheel event\n"
+              << "time = " << event->time << std::endl
+              << "x = " << event->x << std::endl
+              << "y = " << event->y << std::endl
+              << "state = " << event->state << std::endl
+              << "direction = " << event->direction << std::endl
+              << "delta_x = " << event->delta_x << std::endl
+              << "delta_y = " << event->delta_y << std::endl;
+    
+    if (event->direction == 1)
+      m_zoom -= 25;
+    else
+      m_zoom += 25;
+    printf("%d\n", m_zoom);
+
+    double v;
+    v = (double )m_org_width * (double )m_zoom / 100.0;
+    m_width = (int )v;
+    v = (double )m_org_height * (double )m_zoom / 100.0;
+    m_height = (int )v;
+    printf("%d, %d\n", m_width, m_height);
+
+    set_size_request(m_width, m_height);
+
+    Glib::RefPtr<Gtk::Adjustment>  adj;
+    adj = m_scr_win->get_hadjustment();
+    printf("%f, %f, %f\n", adj->get_lower(), adj->get_upper(), adj->get_value());
+    adj->set_value((adj->get_upper() - adj->get_lower()) / 2.0);
+
+    adj = m_scr_win->get_vadjustment();
+    printf("%f, %f, %f\n", adj->get_lower(), adj->get_upper(), adj->get_value());
+    adj->set_value((adj->get_upper() - adj->get_lower()) / 2.0);
+
+    int width = m_scr_win->get_allocated_width();
+    int height = m_scr_win->get_allocated_height();
+    printf("%d, %d\n", width, height);
+
+    return true;
+  };
 
 private:
+  int m_width, m_height;
+  int m_org_width, m_org_height;
+  int m_zoom;
   Glib::RefPtr<Gdk::Pixbuf>  m_pixbuf;
   Glib::RefPtr<Pango::Layout> m_layout;
 };
 
+
+
 class MainWin : public Gtk::Window
 {
 public:
-  MainWin()
+  MainWin() :
+    m_box(Gtk::Orientation::ORIENTATION_VERTICAL , 0),
+    m_status_bar("Statusbar")
   {
-    m_scr.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
-    m_scr.add(m_drawarea);
-    add(m_scr);
+    m_scr_win.add(m_drawarea);
+    m_box.pack_start(m_scr_win, true, true, 0);
+    m_box.pack_end(m_status_bar, false, false, 0);
+    add(m_box);
+    m_drawarea.m_scr_win = &m_scr_win;
     resize(300, 300);
-    //add(m_drawarea);
     show_all_children();
   }
+protected:
+
 private:
-  MyDrawArea m_drawarea;
-  Gtk::ScrolledWindow m_scr;
+  Gtk::Box            m_box;
+  Gtk::ScrolledWindow m_scr_win;
+  Gtk::Label          m_status_bar;
+  MyDrawArea          m_drawarea;
 };
 
 int main(int argc, char *argv[])
