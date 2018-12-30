@@ -33,29 +33,34 @@
 
 // Includes --------------------------------------------------------------------
 #include <iostream>
+#include <cstring>
 #include <gtkmm.h>
 
-class MyDrawArea : public Gtk::DrawingArea, public Gtk::Scrollable
+class MyDrawArea : public Gtk::Scrollable, public Gtk::Widget
 //class MyDrawArea : public Gtk::DrawingArea
 {
 public:
 
   MyDrawArea()
-  : Glib::ObjectBase("my_draw_area")
+  : Glib::ObjectBase("my_draw_area"),
+    hadjustment_(*this, "hadjustment"),
+    vadjustment_(*this, "vadjustment"),
+    hscroll_policy_(*this, "hscroll-policy", Gtk::SCROLL_NATURAL),
+    vscroll_policy_(*this, "vscroll-policy", Gtk::SCROLL_NATURAL)
   {
-    //set_has_window(false);
+    set_has_window(true);
+    property_hadjustment().signal_changed().connect(sigc::mem_fun(*this, &MyDrawArea::adjustment_changed<false>));
+    property_vadjustment().signal_changed().connect(sigc::mem_fun(*this, &MyDrawArea::adjustment_changed<true>));
 
-    //Gtk::Scrollable::add_interface(Scrollable::get_type());
-
-    set_halign(Gtk::ALIGN_CENTER);
-    set_valign(Gtk::ALIGN_CENTER);
+    //set_halign(Gtk::ALIGN_CENTER);
+    //set_valign(Gtk::ALIGN_CENTER);
 
     m_org_width = 250;
     m_org_height = 249;
     m_width = m_org_width;
     m_height = m_org_height;
     m_zoom = 100;
-    set_size_request(m_width, m_height);
+    //set_size_request(m_width, m_height);
     add_events(Gdk::SCROLL_MASK);
     //set_hscroll_policy(Gtk::ScrollablePolicy::SCROLL_MINIMUM);
     //set_vscroll_policy(Gtk::ScrollablePolicy::SCROLL_MINIMUM);
@@ -74,6 +79,9 @@ public:
   }
   Gtk::ScrolledWindow *m_scr_win;
 protected:
+  Glib::Property<Glib::RefPtr<Gtk::Adjustment>> hadjustment_, vadjustment_;
+  Glib::Property<Gtk::ScrollablePolicy> hscroll_policy_, vscroll_policy_;
+
   bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override
   {
     Gdk::Cairo::set_source_color(cr, Gdk::Color("black"));
@@ -131,12 +139,84 @@ protected:
     return true;
   };
 
+    void configure_adjustment(bool vertical) {
+      if(const auto v = (vertical ? property_vadjustment() : property_hadjustment()).get_value()) {
+        v->freeze_notify();
+        v->set_upper(1000);
+        v->set_step_increment(10);
+        v->set_page_size(100);
+        v->thaw_notify();
+      }
+    }
+    template<bool vertical>
+    void adjustment_changed() {
+      if(const auto v = (vertical ? property_vadjustment() : property_hadjustment()).get_value()) {
+        sigc::connection& connection = vertical ? vadjustment_connection_ : hadjustment_connection_;
+        connection.disconnect();
+        connection = v->signal_value_changed().connect(sigc::mem_fun(*this, &MyDrawArea::adjustment_value_changed));
+        configure_adjustment(vertical);
+      }
+    }
+    void adjustment_value_changed() {
+      queue_draw();
+    }
+    sigc::connection hadjustment_connection_, vadjustment_connection_;
+  private:
+    void get_preferred_width_vfunc(int& minimum_width, int& natural_width) const {
+      minimum_width = 300;
+      natural_width = 1000;
+    }
+    void get_preferred_height_for_width_vfunc(int width, int& minimum_height, int& natural_height) const {
+      return get_preferred_height_vfunc(minimum_height, natural_height);
+    }
+    void get_preferred_height_vfunc(int& minimum_height, int& natural_height) const {
+      minimum_height = 300;
+      natural_height = 1000;
+    }
+    void get_preferred_width_for_height_vfunc(int height, int& minimum_width, int& natural_width) const {
+      return get_preferred_width_vfunc(minimum_width, natural_width);
+    }
+
+   void on_realize() {
+      set_realized();
+      if(!window_) {
+        GdkWindowAttr attributes;
+        std::memset(&attributes, 0, sizeof(decltype(attributes)));
+        const Gtk::Allocation allocation(get_allocation());
+        attributes.x = allocation.get_x();
+        attributes.y = allocation.get_y();
+        attributes.width = allocation.get_width();
+        attributes.height = allocation.get_height();
+        attributes.event_mask = get_events() | Gdk::EXPOSURE_MASK;
+        attributes.window_type = GDK_WINDOW_CHILD;
+        attributes.wclass = GDK_INPUT_OUTPUT;
+
+        window_ = Gdk::Window::create(get_parent_window(), &attributes, Gdk::WA_X | Gdk::WA_Y);
+        set_window(window_);
+
+        override_background_color(Gdk::RGBA("red"));
+        override_color(Gdk::RGBA("blue"));
+
+        window_->set_user_data(Gtk::Widget::gobj());
+      }
+    }
+    void on_size_allocate(Gtk::Allocation& allocation) {
+      set_allocation(allocation);
+      if(window_)
+        window_->move_resize(allocation.get_x(), allocation.get_y(), allocation.get_width(), allocation.get_height());
+    }
+    void on_unrealize() {
+      window_.reset();
+      Gtk::Widget::on_unrealize();
+    }
+
 private:
   int m_width, m_height;
   int m_org_width, m_org_height;
   int m_zoom;
   Glib::RefPtr<Gdk::Pixbuf>  m_pixbuf;
   Glib::RefPtr<Pango::Layout> m_layout;
+  Glib::RefPtr<Gdk::Window> window_;
 };
 
 
