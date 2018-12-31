@@ -225,6 +225,7 @@ protected:
     v->freeze_notify();
     if (m_width <= m_window_width)
     {
+      m_offset_x = 0;
       v->set_value(0);
       v->set_upper(0);
       v->set_step_increment(0);
@@ -234,6 +235,8 @@ protected:
     {
       //printf("h upper: %d, %d\n", m_width, m_window_width);
       m_offset_x_max = m_width - m_window_width;
+      if (m_offset_x > m_offset_x_max)
+        m_offset_x = m_offset_x_max;
       v->set_upper(m_offset_x_max);
       v->set_value(m_offset_x);
       v->set_step_increment(1);
@@ -250,6 +253,7 @@ protected:
     v->freeze_notify();
     if (m_height <= m_window_height)
     {
+      m_offset_y = 0;
       v->set_value(0);
       v->set_upper(0);
       v->set_step_increment(0);
@@ -259,6 +263,8 @@ protected:
     {
       //printf("v upper: %d\n", m_height - m_window_height);
       m_offset_y_max = m_height - m_window_height;
+      if (m_offset_y > m_offset_y_max)
+        m_offset_y = m_offset_y_max;
       v->set_upper(m_offset_y_max);
       v->set_value(m_offset_y);
       v->set_step_increment(1);
