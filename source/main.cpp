@@ -52,8 +52,8 @@ public:
     property_hadjustment().signal_changed().connect(sigc::mem_fun(*this, &MyDrawArea::hadjustment_changed));
     property_vadjustment().signal_changed().connect(sigc::mem_fun(*this, &MyDrawArea::vadjustment_changed));
 
-    set_halign(Gtk::ALIGN_CENTER);
-    set_valign(Gtk::ALIGN_CENTER);
+    //set_halign(Gtk::ALIGN_CENTER);
+    //set_valign(Gtk::ALIGN_CENTER);
 
     m_org_width = 250;
     m_org_height = 249;
@@ -77,7 +77,6 @@ public:
     //m_layout = create_pango_layout("");
     //m_layout->set_font_description(Pango::FontDescription("Serif 20"));
   }
-  Gtk::ScrolledWindow *m_scr_win;
 protected:
   Glib::Property<Glib::RefPtr<Gtk::Adjustment>> hadjustment_, vadjustment_;
   Glib::Property<Gtk::ScrollablePolicy> hscroll_policy_, vscroll_policy_;
@@ -108,7 +107,7 @@ protected:
               << "delta_x = " << event->delta_x << std::endl
               << "delta_y = " << event->delta_y << std::endl;
     
-    if (event->direction == 1)
+/*    if (event->direction == 1)
       m_zoom -= 25;
     else
       m_zoom += 25;
@@ -134,7 +133,7 @@ protected:
 
     int width = m_scr_win->get_allocated_width();
     int height = m_scr_win->get_allocated_height();
-    printf("%d, %d\n", width, height);
+    printf("%d, %d\n", width, height);*/
 
     return true;
   };
@@ -142,7 +141,8 @@ protected:
   void configure_hadjustment()
   {
     const auto v = property_hadjustment().get_value();
-
+    if (!v)
+      return;
     v->freeze_notify();
     v->set_upper(1000);
     v->set_step_increment(10);
@@ -152,7 +152,8 @@ protected:
   void configure_vadjustment()
   {
     const auto v = property_vadjustment().get_value();
-
+    if (!v)
+      return;
     v->freeze_notify();
     v->set_upper(1000);
     v->set_step_increment(10);
@@ -162,17 +163,19 @@ protected:
   void hadjustment_changed()
   {
     const auto v = property_hadjustment().get_value();
-    sigc::connection& connection = hadjustment_connection_;
-    connection.disconnect();
-    connection = v->signal_value_changed().connect(sigc::mem_fun(*this, &MyDrawArea::adjustment_value_changed));
+    if (!v)
+      return;
+    hadjustment_connection_.disconnect();
+    hadjustment_connection_ = v->signal_value_changed().connect(sigc::mem_fun(*this, &MyDrawArea::adjustment_value_changed));
     configure_hadjustment();
   }
   void vadjustment_changed()
   {
     const auto v = property_vadjustment().get_value();
-    sigc::connection& connection = vadjustment_connection_;
-    connection.disconnect();
-    connection = v->signal_value_changed().connect(sigc::mem_fun(*this, &MyDrawArea::adjustment_value_changed));
+    if (!v)
+      return;
+    vadjustment_connection_.disconnect();
+    vadjustment_connection_ = v->signal_value_changed().connect(sigc::mem_fun(*this, &MyDrawArea::adjustment_value_changed));
     configure_vadjustment();
   }
   void adjustment_value_changed()
@@ -182,15 +185,15 @@ protected:
   sigc::connection hadjustment_connection_, vadjustment_connection_;
 
   //private:
-  Gtk::SizeRequestMode get_request_mode_vfunc() const   // Optional
+  /*Gtk::SizeRequestMode get_request_mode_vfunc() const   // Optional
   {
     //Accept the default value supplied by the base class.
     return Gtk::Widget::get_request_mode_vfunc();
   }
   void get_preferred_width_vfunc(int& minimum_width, int& natural_width) const
   {
-    minimum_width = 300;
-    natural_width = 1000;
+    minimum_width = 0;
+    natural_width = 0;
   }
   void get_preferred_height_for_width_vfunc(int width, int& minimum_height, int& natural_height) const
   {
@@ -198,13 +201,13 @@ protected:
   }
   void get_preferred_height_vfunc(int& minimum_height, int& natural_height) const
   {
-    minimum_height = 300;
-    natural_height = 1000;
+    minimum_height = 0;
+    natural_height = 0;
   }
   void get_preferred_width_for_height_vfunc(int height, int& minimum_width, int& natural_width) const
   {
     return get_preferred_width_vfunc(minimum_width, natural_width);
-  }
+  }*/
   void on_size_allocate(Gtk::Allocation& allocation)
   {
     //Do something with the space that we have actually been given:
@@ -213,12 +216,17 @@ protected:
     
     //Use the offered allocation for this container:
     set_allocation(allocation);
-    
+    m_window_x = allocation.get_x();
+    m_window_y = allocation.get_y();
+    m_window_width = allocation.get_width();
+    m_window_height = allocation.get_height();
+    printf("on_size_allocate: x = %d, y = %d, w = %d, h= %d\n", m_window_x, m_window_y, m_window_width, m_window_height);
+
     if(m_window)
-      m_window->move_resize(allocation.get_x(), allocation.get_y(), allocation.get_width(), allocation.get_height());
+      m_window->move_resize(m_window_x, m_window_y, m_window_width, m_window_height);
   }
 
-  void on_map()
+/*  void on_map()
   {
     //Call base class:
     Gtk::Widget::on_map();
@@ -228,7 +236,7 @@ protected:
   {
     //Call base class:
     Gtk::Widget::on_unmap();
-  }
+  }*/
 
   void on_realize()
   {
@@ -269,6 +277,7 @@ protected:
   }
 
 private:
+  int m_window_x, m_window_y, m_window_width, m_window_height;
   int m_width, m_height;
   int m_org_width, m_org_height;
   int m_zoom;
@@ -290,7 +299,6 @@ public:
     m_box.pack_start(m_scr_win, true, true, 0);
     m_box.pack_end(m_status_bar, false, false, 0);
     add(m_box);
-    m_drawarea.m_scr_win = &m_scr_win;
     resize(300, 300);
     show_all_children();
   }
