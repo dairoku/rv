@@ -36,6 +36,10 @@
 #include <cstring>
 #include <gtkmm.h>
 
+#define DEBUG_TRACE(...)    printf(__VA_ARGS__)
+#define VERBOSE_INFO(...)   printf(__VA_ARGS__)
+//#define VERBOSE_INFO(...)
+
 class MyDrawArea : public Gtk::Scrollable, public Gtk::Widget   // Order of Scrollable/Widget is very important
 //class MyDrawArea : public Gtk::DrawingArea
 {
@@ -52,18 +56,22 @@ public:
     property_hadjustment().signal_changed().connect(sigc::mem_fun(*this, &MyDrawArea::hadjustment_changed));
     property_vadjustment().signal_changed().connect(sigc::mem_fun(*this, &MyDrawArea::vadjustment_changed));
 
-    //set_halign(Gtk::ALIGN_CENTER);
-    //set_valign(Gtk::ALIGN_CENTER);
+    m_org_width   = 250;
+    m_org_height  = 249;
+    m_width       = m_org_width;
+    m_height      = m_org_height;
+    m_offset_x    = 0;
+    m_offset_y    = 0;
+    m_window_x    = 0;
+    m_window_y    = 0;
+    m_window_width  = 0;
+    m_window_height = 0;
+    m_zoom          = 1.0;
+    m_mouse_l_pressed = false;
 
-    m_org_width = 250;
-    m_org_height = 249;
-    m_width = m_org_width;
-    m_height = m_org_height;
-    m_zoom = 100;
-    //set_size_request(m_width, m_height);
-    add_events(Gdk::SCROLL_MASK);
-    //set_hscroll_policy(Gtk::ScrollablePolicy::SCROLL_MINIMUM);
-    //set_vscroll_policy(Gtk::ScrollablePolicy::SCROLL_MINIMUM);
+    //add_events(Gdk::SCROLL_MASK | Gdk::POINTER_MOTION_MASK);
+    add_events(Gdk::SCROLL_MASK | Gdk::BUTTON_MOTION_MASK |
+               Gdk::POINTER_MOTION_MASK | Gdk::BUTTON_PRESS_MASK | Gdk::BUTTON_RELEASE_MASK);
 
     try
     {
@@ -74,26 +82,96 @@ public:
       Glib::exception_handlers_invoke();
       exit(1);
     }
-    //m_layout = create_pango_layout("");
-    //m_layout->set_font_description(Pango::FontDescription("Serif 20"));
   }
 protected:
   Glib::Property<Glib::RefPtr<Gtk::Adjustment>> hadjustment_, vadjustment_;
   Glib::Property<Gtk::ScrollablePolicy> hscroll_policy_, vscroll_policy_;
 
+  virtual bool  on_button_press_event(GdkEventButton* button_event)
+  {
+    m_mouse_l_pressed = true;
+    m_mouse_x = button_event->x;
+    m_mouse_y = button_event->y;
+    m_offset_x_org = m_offset_x;
+    m_offset_y_org = m_offset_y;
+    //DEBUG_TRACE("on_button_press_event()\n");
+    return true;
+  }
+  virtual bool  on_motion_notify_event(GdkEventMotion* motion_event)
+  {
+    if (m_mouse_l_pressed == false)
+      return false;
+    if (m_width > m_window_width)
+    {
+      int d = m_offset_x_org + (m_mouse_x - motion_event->x);
+      if (d > m_offset_x_max)
+        d = m_offset_x_max;
+      if (d < 0)
+        d = 0;
+      if (d != m_offset_x)
+      {
+        //printf("x: %d, %d, %d, %d\n", m_mouse_x, (int )motion_event->x, d, m_offset_x_max);
+        m_offset_x = d;
+        const auto v = property_hadjustment().get_value();
+        v->freeze_notify();
+        v->set_value(m_offset_x);
+        v->thaw_notify();
+      }
+    }
+    if (m_height > m_window_height)
+    {
+      int d = m_offset_y_org + (m_mouse_y - motion_event->y);
+      if (d > m_offset_y_max)
+        d = m_offset_y_max;
+      if (d < 0)
+        d = 0;
+      if (d != m_offset_y)
+      {
+        //printf("y: %d, %d, %d, %d\n", m_mouse_y, (int )motion_event->y, d, m_offset_y_max);
+        m_offset_y = d;
+        const auto v = property_vadjustment().get_value();
+        v->freeze_notify();
+        v->set_value(m_offset_y);
+        v->thaw_notify();
+      }
+    }
+    return true;
+  }
+  virtual bool  on_button_release_event(GdkEventButton* release_event)
+  {
+    m_mouse_l_pressed = false;
+    //DEBUG_TRACE("on_button_release_event()\n");
+    return true;
+  }
+
+
   bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override
   {
+    int x = 0, y = 0;
+    
+    if (m_width <= m_window_width)
+      x = (m_window_width  - m_width)  / 2;
+    else
+    {
+      //if (m_offset_x > m_offset_x_max)
+      //  m_offset_x = m_offset_x_max;
+      x = -1 * m_offset_x;
+    }
+    if (m_height <= m_window_height)
+      y = (m_window_height - m_height) / 2;
+    else
+    {
+      //if (m_offset_y > m_offset_y_max)
+      //  m_offset_y = m_offset_y_max;
+      y = -1 * m_offset_y;
+    }
+
+    cr->set_identity_matrix();
+    cr->translate(0, 0);
     Gdk::Cairo::set_source_color(cr, Gdk::Color("black"));
-    Gdk::Cairo::set_source_pixbuf(cr, m_pixbuf->scale_simple(m_width, m_height, Gdk::INTERP_NEAREST), 0, 0);
+    Gdk::Cairo::set_source_pixbuf(cr, m_pixbuf->scale_simple(m_width, m_height, Gdk::INTERP_NEAREST), x, y);
     cr->paint();
 
-  //get_window()->set_background(Gdk::Color("black");
-  //get_window()->clear();
-  //m_layout->set_text("Hello, world");
-  //get_window()->draw_layout(m_gc, 50, 50, m_layout, Gdk::Color("white");, Gdk::Color("black"));
-  //get_window()->draw_pixelbuf(m_gc, m_pixbuf, 0, 0, 50, 100, m_pixbuf->get_width(), m_pixbuf->get_height(), Gdk::RGB_DITHER_NONE, 0, 0);
-  //get_window()->draw_pixelbuf(m_gc, m_pixelbuf2, 0, 0, 250, 40, m_pixelbuf2->get_width(), m_pixelbuf2->get_height(), Gdk::RGB_DITHER_NONE, 0, 0);
-    
     return true;
   }
   virtual bool on_scroll_event(GdkEventScroll *event)
@@ -140,28 +218,57 @@ protected:
 
   void configure_hadjustment()
   {
+    //DEBUG_TRACE("configure_hadjustment()\n");
     const auto v = property_hadjustment().get_value();
-    if (!v)
+    if (!v || m_window_width == 0)
       return;
     v->freeze_notify();
-    v->set_upper(1000);
-    v->set_step_increment(10);
-    v->set_page_size(100);
+    if (m_width <= m_window_width)
+    {
+      v->set_value(0);
+      v->set_upper(0);
+      v->set_step_increment(0);
+      v->set_page_size(0);
+    }
+    else
+    {
+      //printf("h upper: %d, %d\n", m_width, m_window_width);
+      m_offset_x_max = m_width - m_window_width;
+      v->set_upper(m_offset_x_max);
+      v->set_value(m_offset_x);
+      v->set_step_increment(1);
+      v->set_page_size(10);
+    }
     v->thaw_notify();
   }
   void configure_vadjustment()
   {
+    //DEBUG_TRACE("configure_vadjustment()\n");
     const auto v = property_vadjustment().get_value();
-    if (!v)
+    if (!v || m_window_height == 0)
       return;
     v->freeze_notify();
-    v->set_upper(1000);
-    v->set_step_increment(10);
-    v->set_page_size(100);
+    if (m_height <= m_window_height)
+    {
+      v->set_value(0);
+      v->set_upper(0);
+      v->set_step_increment(0);
+      v->set_page_size(0);
+    }
+    else
+    {
+      //printf("v upper: %d\n", m_height - m_window_height);
+      m_offset_y_max = m_height - m_window_height;
+      v->set_upper(m_offset_y_max);
+      v->set_value(m_offset_y);
+      v->set_step_increment(1);
+      v->set_page_size(10);
+    }
     v->thaw_notify();
   }
   void hadjustment_changed()
   {
+    DEBUG_TRACE("hadjustment_changed()\n");
     const auto v = property_hadjustment().get_value();
     if (!v)
       return;
@@ -171,6 +278,7 @@ protected:
   }
   void vadjustment_changed()
   {
+    DEBUG_TRACE("vadjustment_changed()\n");
     const auto v = property_vadjustment().get_value();
     if (!v)
       return;
@@ -180,12 +288,26 @@ protected:
   }
   void adjustment_value_changed()
   {
+    //DEBUG_TRACE("adjustment_value_changed()\n");
+    if (m_width > m_window_width)
+    {
+      const auto v = property_hadjustment().get_value();
+      m_offset_x = v->get_value();
+    }
+    if (m_height > m_window_height)
+    {
+      const auto v = property_vadjustment().get_value();
+      m_offset_y = v->get_value();
+    }
     queue_draw();
   }
   sigc::connection hadjustment_connection_, vadjustment_connection_;
 
-  //private:
-  /*Gtk::SizeRequestMode get_request_mode_vfunc() const   // Optional
+  /*
+  // We can use the following code for preferred_width/height.
+  // However, the base class has already this.
+  // Therefore we can skip it
+  Gtk::SizeRequestMode get_request_mode_vfunc() const   // Optional
   {
     //Accept the default value supplied by the base class.
     return Gtk::Widget::get_request_mode_vfunc();
@@ -220,23 +342,15 @@ protected:
     m_window_y = allocation.get_y();
     m_window_width = allocation.get_width();
     m_window_height = allocation.get_height();
-    printf("on_size_allocate: x = %d, y = %d, w = %d, h= %d\n", m_window_x, m_window_y, m_window_width, m_window_height);
+    VERBOSE_INFO("on_size_allocate: x = %d, y = %d, w = %d, h= %d\n", m_window_x, m_window_y, m_window_width, m_window_height);
 
     if(m_window)
+    {
       m_window->move_resize(m_window_x, m_window_y, m_window_width, m_window_height);
+      configure_hadjustment();
+      configure_vadjustment();
+    }
   }
-
-/*  void on_map()
-  {
-    //Call base class:
-    Gtk::Widget::on_map();
-  }
-
-  void on_unmap()
-  {
-    //Call base class:
-    Gtk::Widget::on_unmap();
-  }*/
 
   void on_realize()
   {
@@ -280,13 +394,16 @@ private:
   int m_window_x, m_window_y, m_window_width, m_window_height;
   int m_width, m_height;
   int m_org_width, m_org_height;
-  int m_zoom;
+  bool  m_mouse_l_pressed;
+  int m_mouse_x, m_mouse_y;
+  int m_offset_x, m_offset_y;
+  int m_offset_x_max, m_offset_y_max;
+  int m_offset_x_org, m_offset_y_org;
+  double  m_zoom;
   Glib::RefPtr<Gdk::Pixbuf>  m_pixbuf;
   Glib::RefPtr<Pango::Layout> m_layout;
   Glib::RefPtr<Gdk::Window> m_window;
 };
-
-
 
 class MainWin : public Gtk::Window
 {
@@ -313,9 +430,6 @@ private:
 
 int main(int argc, char *argv[])
 {
-  //Gtk::Main kit(argc, argv);
-  //MainWin mainWin;
-  //Gtk::Main::run(mainWin);
   auto app = Gtk::Application::create(argc, argv, "org.gtkmm.example.base");
   MainWin window;
   return app->run(window);
