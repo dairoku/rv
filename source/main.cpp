@@ -105,7 +105,7 @@ protected:
       return false;
     if (m_width > m_window_width)
     {
-      int d = m_offset_x_org + (m_mouse_x - motion_event->x);
+      double d = m_offset_x_org + (m_mouse_x - motion_event->x);
       if (d > m_offset_x_max)
         d = m_offset_x_max;
       if (d < 0)
@@ -117,12 +117,13 @@ protected:
         const auto v = property_hadjustment().get_value();
         v->freeze_notify();
         v->set_value(m_offset_x);
+        m_adjusments_modified = true;
         v->thaw_notify();
       }
     }
     if (m_height > m_window_height)
     {
-      int d = m_offset_y_org + (m_mouse_y - motion_event->y);
+      double d = m_offset_y_org + (m_mouse_y - motion_event->y);
       if (d > m_offset_y_max)
         d = m_offset_y_max;
       if (d < 0)
@@ -134,6 +135,7 @@ protected:
         const auto v = property_vadjustment().get_value();
         v->freeze_notify();
         v->set_value(m_offset_y);
+        m_adjusments_modified = true;
         v->thaw_notify();
       }
     }
@@ -149,7 +151,7 @@ protected:
 
   bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override
   {
-    int x = 0, y = 0;
+    double x = 0, y = 0;
 
     if (m_width <= m_window_width)
       x = (m_window_width  - m_width)  / 2;
@@ -195,13 +197,13 @@ protected:
     else
       m_zoom += 0.25;
 
-    int prev_width = m_width;
-    int prev_height = m_height;
+    double prev_width = m_width;
+    double prev_height = m_height;
     double v;
-    v = (double )m_org_width * m_zoom;
-    m_width = (int )v;
-    v = (double )m_org_height * m_zoom;
-    m_height = (int )v;
+    v = m_org_width * m_zoom;
+    m_width = v;
+    v = m_org_height * m_zoom;
+    m_height = v;
 
     if (m_width <= m_window_width)
       m_offset_x = 0;
@@ -354,7 +356,7 @@ protected:
     m_window_y = allocation.get_y();
     m_window_width = allocation.get_width();
     m_window_height = allocation.get_height();
-    VERBOSE_INFO("on_size_allocate: x = %d, y = %d, w = %d, h= %d\n", m_window_x, m_window_y, m_window_width, m_window_height);
+    //VERBOSE_INFO("on_size_allocate: x = %d, y = %d, w = %d, h= %d\n", m_window_x, m_window_y, m_window_width, m_window_height);
 
     if(m_window)
     {
@@ -403,15 +405,15 @@ protected:
   }
 
 private:
-  int m_window_x, m_window_y, m_window_width, m_window_height;
-  int m_width, m_height;
-  int m_org_width, m_org_height;
-  bool  m_mouse_l_pressed;
-  int m_mouse_x, m_mouse_y;
-  int m_offset_x, m_offset_y;
-  int m_offset_x_max, m_offset_y_max;
-  int m_offset_x_org, m_offset_y_org;
+  double m_window_x, m_window_y, m_window_width, m_window_height;
+  double m_width, m_height;
+  double m_org_width, m_org_height;
+  double m_mouse_x, m_mouse_y;
+  double m_offset_x, m_offset_y;
+  double m_offset_x_max, m_offset_y_max;
+  double m_offset_x_org, m_offset_y_org;
   double  m_zoom;
+  bool  m_mouse_l_pressed;
   bool  m_adjusments_modified;
   Glib::RefPtr<Gdk::Pixbuf>  m_pixbuf;
   Glib::RefPtr<Pango::Layout> m_layout;
