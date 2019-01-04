@@ -36,9 +36,10 @@
 #include <cstring>
 #include <gtkmm.h>
 
-#define DEBUG_TRACE(...)    printf(__VA_ARGS__)
-#define VERBOSE_INFO(...)   printf(__VA_ARGS__)
-//#define VERBOSE_INFO(...)
+//#define DEBUG_TRACE(...)    printf(__VA_ARGS__)
+//#define VERBOSE_INFO(...)   printf(__VA_ARGS__)
+#define VERBOSE_INFO(...)
+#define DEBUG_TRACE(...)
 
 class MyDrawArea : public Gtk::Scrollable, public Gtk::Widget   // Order of Scrollable/Widget is very important
 //class MyDrawArea : public Gtk::DrawingArea
@@ -68,6 +69,7 @@ public:
     m_window_height = 0;
     m_zoom          = 1.0;
     m_mouse_l_pressed = false;
+    m_adjusments_modified = false;
 
     //add_events(Gdk::SCROLL_MASK | Gdk::POINTER_MOTION_MASK);
     add_events(Gdk::SCROLL_MASK | Gdk::BUTTON_MOTION_MASK |
@@ -148,7 +150,9 @@ protected:
   bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override
   {
     int x = 0, y = 0;
-    
+    static int c = 0;
+    printf("d%d\n", c++);
+
     if (m_width <= m_window_width)
       x = (m_window_width  - m_width)  / 2;
     else
@@ -176,42 +180,68 @@ protected:
   }
   virtual bool on_scroll_event(GdkEventScroll *event)
   {
-    std::cout << "wheel event\n"
-              << "time = " << event->time << std::endl
-              << "x = " << event->x << std::endl
-              << "y = " << event->y << std::endl
-              << "state = " << event->state << std::endl
-              << "direction = " << event->direction << std::endl
-              << "delta_x = " << event->delta_x << std::endl
-              << "delta_y = " << event->delta_y << std::endl;
-    
-/*    if (event->direction == 1)
-      m_zoom -= 25;
+    //std::cout << "wheel event\n"
+    //          << "time = " << event->time << std::endl
+    //          << "x = " << event->x << std::endl
+    //          << "y = " << event->y << std::endl
+    //          << "state = " << event->state << std::endl
+    //          << "direction = " << event->direction << std::endl
+    //          << "delta_x = " << event->delta_x << std::endl
+    //          << "delta_y = " << event->delta_y << std::endl;
+
+    double prev_zoom = m_zoom;
+    if (event->direction == 1)
+      m_zoom -= 0.25;
     else
-      m_zoom += 25;
-    printf("%d\n", m_zoom);
+      m_zoom += 0.25;
 
+    int prev_width = m_width;
+    int prev_height = m_height;
     double v;
-    v = (double )m_org_width * (double )m_zoom / 100.0;
+    v = (double )m_org_width * m_zoom;
     m_width = (int )v;
-    v = (double )m_org_height * (double )m_zoom / 100.0;
+    v = (double )m_org_height * m_zoom;
     m_height = (int )v;
-    printf("%d, %d\n", m_width, m_height);
 
-    //set_size_request(m_width, m_height);
+    if (m_width <= m_window_width)
+      m_offset_x = 0;
+    else
+    {
+      if (prev_width <= m_window_width)
+        v = -1 * (m_window_width - prev_width) / 2.0;
+      else
+        v = 0;
+      v = v + (m_offset_x + event->x) / prev_zoom;
+      v = v * m_zoom - event->x;
+      m_offset_x = v;
+      m_offset_x_max = m_width - m_window_width;
+      if (m_offset_x > m_offset_x_max)
+        m_offset_x = m_offset_x_max;
+      if (m_offset_x < 0)
+        m_offset_x = 0;
+    }
 
-    Glib::RefPtr<Gtk::Adjustment>  adj;
-    adj = m_scr_win->get_hadjustment();
-    printf("%f, %f, %f\n", adj->get_lower(), adj->get_upper(), adj->get_value());
-    adj->set_value((adj->get_upper() - adj->get_lower()) / 2.0);
+    if (m_height <= m_window_height)
+      m_offset_y = 0;
+    else
+    {
+      if (prev_height <= m_window_height)
+        v = -1 * (m_window_height - prev_height) / 2.0;
+      else
+        v = 0;
+      v = (m_offset_y + event->y) / prev_zoom;
+      v = v * m_zoom - event->y;
+      m_offset_y = v;
+      m_offset_y_max = m_height - m_window_height;
+      if (m_offset_y > m_offset_y_max)
+        m_offset_y = m_offset_y_max;
+      if (m_offset_y < 0)
+        m_offset_y = 0;
+    }
 
-    adj = m_scr_win->get_vadjustment();
-    printf("%f, %f, %f\n", adj->get_lower(), adj->get_upper(), adj->get_value());
-    adj->set_value((adj->get_upper() - adj->get_lower()) / 2.0);
-
-    int width = m_scr_win->get_allocated_width();
-    int height = m_scr_win->get_allocated_height();
-    printf("%d, %d\n", width, height);*/
+    configure_hadjustment();
+    configure_vadjustment();
+    queue_draw();
 
     return true;
   };
@@ -241,6 +271,7 @@ protected:
       v->set_value(m_offset_x);
       v->set_step_increment(1);
       v->set_page_size(10);
+      m_adjusments_modified = true;
     }
     v->thaw_notify();
   }
@@ -269,6 +300,7 @@ protected:
       v->set_value(m_offset_y);
       v->set_step_increment(1);
       v->set_page_size(10);
+      m_adjusments_modified = true;
     }
     v->thaw_notify();
   }
@@ -294,17 +326,18 @@ protected:
   }
   void adjustment_value_changed()
   {
-    //DEBUG_TRACE("adjustment_value_changed()\n");
-    if (m_width > m_window_width)
+    DEBUG_TRACE("adjustment_value_changed()\n");
+    if (m_width > m_window_width && m_adjusments_modified == false)
     {
       const auto v = property_hadjustment().get_value();
       m_offset_x = v->get_value();
     }
-    if (m_height > m_window_height)
+    if (m_height > m_window_height && m_adjusments_modified == false)
     {
       const auto v = property_vadjustment().get_value();
       m_offset_y = v->get_value();
     }
+    m_adjusments_modified = false;
     queue_draw();
   }
   sigc::connection hadjustment_connection_, vadjustment_connection_;
@@ -406,6 +439,7 @@ private:
   int m_offset_x_max, m_offset_y_max;
   int m_offset_x_org, m_offset_y_org;
   double  m_zoom;
+  bool  m_adjusments_modified;
   Glib::RefPtr<Gdk::Pixbuf>  m_pixbuf;
   Glib::RefPtr<Pango::Layout> m_layout;
   Glib::RefPtr<Gdk::Window> m_window;
