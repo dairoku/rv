@@ -35,6 +35,7 @@
 #include <iostream>
 #include <cstring>
 #include <gtkmm.h>
+#include <cairomm/pattern.h>
 
 //#define DEBUG_TRACE(...)    printf(__VA_ARGS__)
 //#define VERBOSE_INFO(...)   printf(__VA_ARGS__)
@@ -42,7 +43,6 @@
 #define DEBUG_TRACE(...)
 
 class MyDrawArea : public Gtk::Scrollable, public Gtk::Widget   // Order of Scrollable/Widget is very important
-//class MyDrawArea : public Gtk::DrawingArea
 {
 public:
 
@@ -57,8 +57,8 @@ public:
     property_hadjustment().signal_changed().connect(sigc::mem_fun(*this, &MyDrawArea::hadjustment_changed));
     property_vadjustment().signal_changed().connect(sigc::mem_fun(*this, &MyDrawArea::vadjustment_changed));
 
-    m_org_width   = 250;
-    m_org_height  = 249;
+    m_org_width   = 3840;
+    m_org_height  = 2400;
     m_width       = m_org_width;
     m_height      = m_org_height;
     m_offset_x    = 0;
@@ -150,30 +150,30 @@ protected:
   bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override
   {
     int x = 0, y = 0;
-    static int c = 0;
-    printf("d%d\n", c++);
 
     if (m_width <= m_window_width)
       x = (m_window_width  - m_width)  / 2;
     else
-    {
-      //if (m_offset_x > m_offset_x_max)
-      //  m_offset_x = m_offset_x_max;
       x = -1 * m_offset_x;
-    }
     if (m_height <= m_window_height)
       y = (m_window_height - m_height) / 2;
     else
-    {
-      //if (m_offset_y > m_offset_y_max)
-      //  m_offset_y = m_offset_y_max;
       y = -1 * m_offset_y;
+
+    if (m_zoom >= 1)
+    {
+      cr->set_identity_matrix();
+      cr->translate(x, y);
+      cr->scale(m_zoom, m_zoom);
+      Gdk::Cairo::set_source_pixbuf(cr, m_pixbuf, 0, 0);
+      Cairo::SurfacePattern pattern(cr->get_source()->cobj());
+      pattern.set_filter(Cairo::Filter::FILTER_NEAREST);
+    }
+    else
+    {
+      Gdk::Cairo::set_source_pixbuf(cr, m_pixbuf->scale_simple(m_width, m_height, Gdk::INTERP_NEAREST), x, y);
     }
 
-    cr->set_identity_matrix();
-    cr->translate(0, 0);
-    Gdk::Cairo::set_source_color(cr, Gdk::Color("black"));
-    Gdk::Cairo::set_source_pixbuf(cr, m_pixbuf->scale_simple(m_width, m_height, Gdk::INTERP_NEAREST), x, y);
     cr->paint();
 
     return true;
@@ -342,33 +342,6 @@ protected:
   }
   sigc::connection hadjustment_connection_, vadjustment_connection_;
 
-  /*
-  // We can use the following code for preferred_width/height.
-  // However, the base class has already this.
-  // Therefore we can skip it
-  Gtk::SizeRequestMode get_request_mode_vfunc() const   // Optional
-  {
-    //Accept the default value supplied by the base class.
-    return Gtk::Widget::get_request_mode_vfunc();
-  }
-  void get_preferred_width_vfunc(int& minimum_width, int& natural_width) const
-  {
-    minimum_width = 0;
-    natural_width = 0;
-  }
-  void get_preferred_height_for_width_vfunc(int width, int& minimum_height, int& natural_height) const
-  {
-    return get_preferred_height_vfunc(minimum_height, natural_height);
-  }
-  void get_preferred_height_vfunc(int& minimum_height, int& natural_height) const
-  {
-    minimum_height = 0;
-    natural_height = 0;
-  }
-  void get_preferred_width_for_height_vfunc(int height, int& minimum_width, int& natural_width) const
-  {
-    return get_preferred_width_vfunc(minimum_width, natural_width);
-  }*/
   void on_size_allocate(Gtk::Allocation& allocation)
   {
     //Do something with the space that we have actually been given:
