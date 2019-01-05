@@ -57,6 +57,8 @@ public:
     property_hadjustment().signal_changed().connect(sigc::mem_fun(*this, &MyDrawArea::hadjustment_changed));
     property_vadjustment().signal_changed().connect(sigc::mem_fun(*this, &MyDrawArea::vadjustment_changed));
 
+    signal_realize().connect(sigc::mem_fun(*this, &MyDrawArea::on_widget_created));
+
     m_org_width   = 3840;
     m_org_height  = 2400;
     m_width       = m_org_width;
@@ -88,6 +90,12 @@ public:
 protected:
   Glib::Property<Glib::RefPtr<Gtk::Adjustment>> hadjustment_, vadjustment_;
   Glib::Property<Gtk::ScrollablePolicy> hscroll_policy_, vscroll_policy_;
+
+  void  on_widget_created()
+  {
+    configure_hadjustment();
+    configure_vadjustment();
+  }
 
   virtual bool  on_button_press_event(GdkEventButton* button_event)
   {
