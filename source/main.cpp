@@ -33,15 +33,19 @@
 
 // Includes --------------------------------------------------------------------
 #include <iostream>
+#include <string>
 #include <cstring>
 #include <math.h>
 #include <gtkmm.h>
-#include <cairomm/pattern.h>
+//#include <cairomm/pattern.h>
 
 //#define DEBUG_TRACE(...)    printf(__VA_ARGS__)
 //#define VERBOSE_INFO(...)   printf(__VA_ARGS__)
 #define VERBOSE_INFO(...)
 #define DEBUG_TRACE(...)
+
+std::string g_file_name("./output/test.jpg");
+
 
 class MyDrawArea : public Gtk::Scrollable, public Gtk::Widget   // Order of Scrollable/Widget is very important
 {
@@ -60,10 +64,6 @@ public:
 
     signal_realize().connect(sigc::mem_fun(*this, &MyDrawArea::on_widget_created));
 
-    m_org_width   = 3840;
-    m_org_height  = 2400;
-    m_width       = m_org_width;
-    m_height      = m_org_height;
     m_offset_x    = 0;
     m_offset_y    = 0;
     m_window_x    = 0;
@@ -77,16 +77,6 @@ public:
     //add_events(Gdk::SCROLL_MASK | Gdk::POINTER_MOTION_MASK);
     add_events(Gdk::SCROLL_MASK | Gdk::BUTTON_MOTION_MASK |
                Gdk::POINTER_MOTION_MASK | Gdk::BUTTON_PRESS_MASK | Gdk::BUTTON_RELEASE_MASK);
-
-    try
-    {
-      m_pixbuf = Gdk::Pixbuf::create_from_file("./output/test.jpg");
-    }
-    catch(...)
-    {
-      Glib::exception_handlers_invoke();
-      exit(1);
-    }
   }
 protected:
   Glib::Property<Glib::RefPtr<Gtk::Adjustment>> hadjustment_, vadjustment_;
@@ -94,6 +84,21 @@ protected:
 
   void  on_widget_created()
   {
+    try
+    {
+      m_pixbuf = Gdk::Pixbuf::create_from_file(g_file_name.c_str());
+    }
+    catch(...)
+    {
+      Glib::exception_handlers_invoke();
+      exit(1);
+    }
+
+    m_org_width   = m_pixbuf->get_width();
+    m_org_height  = m_pixbuf->get_height();
+    m_width       = m_org_width;
+    m_height      = m_org_height;
+
     configure_hadjustment();
     configure_vadjustment();
   }
@@ -459,9 +464,43 @@ private:
   MyDrawArea          m_drawarea;
 };
 
+//  The following handler will be called after a standard gtk+ command line
+//  option parse process is finished
+//  Note that: the standard command line options are always removed before
+//  calling this handler from the command_line object by the caller
+int on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine>& command_line,
+                    Glib::RefPtr<Gtk::Application>& app)
+{
+  int argc = 0;
+  char** argv = command_line->get_arguments(argc);
+
+  for (int i = 0; i < argc; ++i)
+  std::cout << "argv[" << i << "] = " << argv[i] << std::endl;
+
+  if (argc != 1)
+    g_file_name.assign(argv[1]);
+
+  app->activate(); // NOTE: Without activate() the window won't be shown.
+  return EXIT_SUCCESS;
+}
+
 int main(int argc, char *argv[])
 {
-  auto app = Gtk::Application::create(argc, argv, "org.gtkmm.example.base");
+  // The command line arguments must be checked before Gtk::Application::run()
+  // is called. The Gio::APPLICATION_HANDLES_COMMAND_LINE flag and the
+  // on_command_line() signal handler are not necessary. This program is simpler
+  // without them, and with argc = 1 in the call to Gtk::Application::create().
+  // They are included to show a program with Gio::APPLICATION_HANDLES_COMMAND_LINE.
+  // Gio::APPLICATION_NON_UNIQUE makes it possible to run several instances of
+  // this application simultaneously.
+  auto app = Gtk::Application::create(argc, argv,
+      "org.gtkmm.example", Gio::APPLICATION_HANDLES_COMMAND_LINE | Gio::APPLICATION_NON_UNIQUE);
+
+  // Note after = false.
+  // Only one signal handler is invoked. This signal handler must run before
+  // the default signal handler, or else it won't run at all.
+  app->signal_command_line().connect(sigc::bind(sigc::ptr_fun(&on_command_line), app), false);
+
   MainWin window;
   return app->run(window);
 }
