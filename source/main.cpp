@@ -34,6 +34,7 @@
 // Includes --------------------------------------------------------------------
 #include <iostream>
 #include <cstring>
+#include <math.h>
 #include <gtkmm.h>
 #include <cairomm/pattern.h>
 
@@ -199,15 +200,22 @@ protected:
     //          << "delta_x = " << event->delta_x << std::endl
     //          << "delta_y = " << event->delta_y << std::endl;
 
+    double v;
     double prev_zoom = m_zoom;
-    if (event->direction == 1)
-      m_zoom -= 0.25;
+
+    if (event->direction == 0)
+      v = 0.02;
     else
-      m_zoom += 0.25;
+      v = -0.02;
+    v = log10(m_zoom) + v;
+    m_zoom = pow(10, v);
+    if (fabs(m_zoom - 1.0) <= 0.01)
+      m_zoom = 1.0;
+    if (m_zoom <= 0.01)
+      m_zoom = 0.01;
 
     double prev_width = m_width;
     double prev_height = m_height;
-    double v;
     v = m_org_width * m_zoom;
     m_width = v;
     v = m_org_height * m_zoom;
