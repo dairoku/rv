@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------
-#  Macros for glutDrverTest
+#  Macros for rv
 # ----------------------------------------------------------------------
 RAWVIEW_DIR		= .
 RAWVIEW_OBJS	= \
@@ -7,6 +7,18 @@ RAWVIEW_OBJS	= \
 RAWVIEW_SOURCES	= $(RAWVIEW_OBJS:.o=.cpp)
 RAWVIEW_DEPENDS	= $(RAWVIEW_OBJS:.o=.d)
 RAWVIEW_NAME	= rv
+
+# ----------------------------------------------------------------------
+#  Macros for libibc
+# ----------------------------------------------------------------------
+LIBIBC_DIR		= ../libibc
+LIBIBC_INC_DIR		= $(LIBIBC_DIR)/include
+LIBIBC_SRC_DIR		= $(LIBIBC_DIR)/source
+LIBIBC_OBJS	= \
+  $(LIBIBC_SRC_DIR)/ibc/gtkmm/image_view.o \
+  $(LIBIBC_SRC_DIR)/ibc/gtkmm/image_view_base.o
+LIBIBC_SOURCES	= $(LIBIBC_OBJS:.o=.cpp)
+LIBIBC_DEPENDS	= $(LIBIBC_SOURCES:.cpp=.d)
 
 # ----------------------------------------------------------------------
 #  Macros for GTK Library
@@ -17,9 +29,9 @@ GLIB_LDFLAGS	= `pkg-config --libs gtkmm-3.0`
 # ----------------------------------------------------------------------
 #  Macros for Common part
 # ----------------------------------------------------------------------
-SOURCES	= $(RAWVIEW_SOURCES)
-DEPENDS	= $(RAWVIEW_DEPENDS)
-OBJS	= $(RAWVIEW_OBJS)
+SOURCES	= $(RAWVIEW_SOURCES) $(LIBIBC_SOURCES)
+DEPENDS	= $(RAWVIEW_DEPENDS) $(LIBIBC_DEPENDS)
+OBJS	= $(RAWVIEW_OBJS) $(LIBIBC_OBJS)
 TARGETS	= $(RAWVIEW_NAME)
 VPATH	= $(RAWVIEW_DIR)
 
@@ -30,7 +42,7 @@ CC			= g++
 LD			= $(CC)
 CFLAGS		= $(GLIB_CFLAGS) -MD -fpic
 LDFLAGS 	= $(GLIB_LDFLAGS)
-INCLUDES	= -I /usr/include -I $(RAWVIEW_DIR)
+INCLUDES	= -I /usr/include -I $(RAWVIEW_DIR) -I $(LIBIBC_INC_DIR)
 
 # ----------------------------------------------------------------------
 #  Default Rules
@@ -48,7 +60,7 @@ all: $(TARGETS)
 #	$(CC) $(LDFLAGS) $<
 
 $(TARGETS) : $(OBJS)
-	$(CC) $(OBJS) $(LDFLAGS) -o output/$@
+	$(CC) $(notdir $(OBJS)) $(LDFLAGS) -o output/$@
 
 $(DEPENDS) : $(SOURCES)
 

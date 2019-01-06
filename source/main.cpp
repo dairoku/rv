@@ -37,14 +37,14 @@
 #include <cstring>
 #include <math.h>
 #include <gtkmm.h>
-//#include <cairomm/pattern.h>
+#include "ibc/gtkmm/image_view.h"
 
 //#define DEBUG_TRACE(...)    printf(__VA_ARGS__)
 //#define VERBOSE_INFO(...)   printf(__VA_ARGS__)
 #define VERBOSE_INFO(...)
 #define DEBUG_TRACE(...)
 
-std::string g_file_name("./output/test.jpg");
+/*std::string g_file_name("./output/test.jpg");
 
 
 class MyDrawArea : public Gtk::Scrollable, public Gtk::Widget   // Order of Scrollable/Widget is very important
@@ -440,6 +440,7 @@ private:
   Glib::RefPtr<Pango::Layout> m_layout;
   Glib::RefPtr<Gdk::Window> m_window;
 };
+*/
 
 class MainWin : public Gtk::Window
 {
@@ -461,7 +462,7 @@ private:
   Gtk::Box            m_box;
   Gtk::ScrolledWindow m_scr_win;
   Gtk::Label          m_status_bar;
-  MyDrawArea          m_drawarea;
+  ibc::gtkmm::ImageView          m_drawarea;
 };
 
 //  The following handler will be called after a standard gtk+ command line
@@ -477,8 +478,8 @@ int on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine>& command_lin
   for (int i = 0; i < argc; ++i)
   std::cout << "argv[" << i << "] = " << argv[i] << std::endl;
 
-  if (argc != 1)
-    g_file_name.assign(argv[1]);
+  //if (argc != 1)
+  //  g_file_name.assign(argv[1]);
 
   app->activate(); // NOTE: Without activate() the window won't be shown.
   return EXIT_SUCCESS;
