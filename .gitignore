@@ -34,5 +34,10 @@
 # Output directory
 output/
 
+# other directories
+backup/
+temp/
+tmp/
+
 # Editor files
 *.komodoproject
