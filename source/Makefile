@@ -47,26 +47,27 @@ INCLUDES	= -I /usr/include -I $(RAWVIEW_DIR) -I $(LIBIBC_INC_DIR)
 # ----------------------------------------------------------------------
 #  Default Rules
 # ----------------------------------------------------------------------
+# Note that we are using "-0 $@" option to generate target objects
+# in the source file directory
+#
 .cpp.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c $<
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ -c $<
 
 .cpp.d:
-	$(CC) $(CFLAGS) $(INCLUDES) -c $<
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ -c $<
 
 # ----------------------------------------------------------------------
 #  Build Rules
 # ----------------------------------------------------------------------
 all: $(TARGETS)
-#	$(CC) $(LDFLAGS) $<
-
-$(TARGETS) : $(OBJS)
-	$(CC) $(notdir $(OBJS)) $(LDFLAGS) -o output/$@
 
 $(DEPENDS) : $(SOURCES)
 
-test:
+$(TARGETS) : $(OBJS)
+	$(CC) $(OBJS) $(LDFLAGS) -o output/$@
 
+.PHONY : clean depend
 clean:
-	$(RM) $(TARGETS) $(OBJS) $(DEPENDS)
+	$(RM) output/$(TARGETS) $(OBJS) $(DEPENDS)
 
-include $(DEPENDS)
+-include $(DEPENDS)
