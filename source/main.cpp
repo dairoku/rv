@@ -48,11 +48,13 @@
 class MainWin : public Gtk::Window
 {
 public:
-  MainWin() :
+  MainWin(ibc::gtkmm::ImageData *inImageDataPtr) :
     m_box(Gtk::Orientation::ORIENTATION_VERTICAL , 0),
     m_status_bar("Statusbar")
   {
-    m_scr_win.add(m_drawarea);
+    mImageDataPtr = inImageDataPtr;
+    mImageView.setImageDataPtr(inImageDataPtr);
+    m_scr_win.add(mImageView);
     m_box.pack_start(m_scr_win, true, true, 0);
     m_box.pack_end(m_status_bar, false, false, 0);
     add(m_box);
@@ -65,7 +67,8 @@ private:
   Gtk::Box            m_box;
   Gtk::ScrolledWindow m_scr_win;
   Gtk::Label          m_status_bar;
-  ibc::gtkmm::ImageView          m_drawarea;
+  ibc::gtkmm::ImageView   mImageView;
+  ibc::gtkmm::ImageData   *mImageDataPtr;
 };
 
 //  The following handler will be called after a standard gtk+ command line
@@ -105,6 +108,26 @@ int main(int argc, char *argv[])
   // the default signal handler, or else it won't run at all.
   app->signal_command_line().connect(sigc::bind(sigc::ptr_fun(&on_command_line), app), false);
 
-  MainWin window;
+  // Create ImageData here
+  ibc::gtkmm::ImageData   imageData;
+  ibc::image::ImageType   imageType(ibc::image::ImageType::PIXEL_TYPE_RGB,
+                                    ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
+                                    ibc::image::ImageType::DATA_TYPE_8BIT);
+  ibc::image::ImageFormat imageFormat(imageType, 640, 480);
+  imageData.allocateImageBuffer(imageFormat);
+  unsigned char *bufPtr = (unsigned char *)imageData.getImageBufferPtr();
+  for (int y = 0; y < 480; y++)
+    for (int x = 0; x < 640; x++)
+    {
+      *bufPtr = (unsigned char)(x ^ y);
+      bufPtr++;
+      *bufPtr = (unsigned char)(x ^ y);
+      bufPtr++;
+      *bufPtr = (unsigned char)(x ^ y);
+      bufPtr++;
+    }
+  imageData.markAsImageModified();
+
+  MainWin window(&imageData);
   return app->run(window);
 }
