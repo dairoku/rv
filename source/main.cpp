@@ -109,6 +109,7 @@ int main(int argc, char *argv[])
   app->signal_command_line().connect(sigc::bind(sigc::ptr_fun(&on_command_line), app), false);
 
   // Create ImageData here
+#if 0
   ibc::gtkmm::ImageData   imageData;
   ibc::image::ImageType   imageType(ibc::image::ImageType::PIXEL_TYPE_RGB,
                                     ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
@@ -126,6 +127,23 @@ int main(int argc, char *argv[])
       *bufPtr = (unsigned char)(x ^ y);
       bufPtr++;
     }
+#endif
+#if 1
+  ibc::gtkmm::ImageData   imageData;
+  ibc::image::ImageType   imageType(ibc::image::ImageType::PIXEL_TYPE_MONO,
+                                    ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
+                                    ibc::image::ImageType::DATA_TYPE_8BIT);
+  ibc::image::ImageFormat imageFormat(imageType, 640, 480);
+  imageData.allocateImageBuffer(imageFormat);
+  unsigned char *bufPtr = (unsigned char *)imageData.getImageBufferPtr();
+  for (int y = 0; y < 480; y++)
+    for (int x = 0; x < 640; x++)
+    {
+      *bufPtr = (unsigned char)(x ^ y);
+      bufPtr++;
+    }
+#endif
+
   imageData.markAsImageModified();
 
   MainWin window(&imageData);
