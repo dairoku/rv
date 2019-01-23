@@ -14,9 +14,7 @@ RAWVIEW_NAME	= rv
 LIBIBC_DIR		= ../libibc
 LIBIBC_INC_DIR		= $(LIBIBC_DIR)/include
 LIBIBC_SRC_DIR		= $(LIBIBC_DIR)/source
-LIBIBC_OBJS	= \
-  $(LIBIBC_SRC_DIR)/ibc/gtkmm/image_view.o \
-  $(LIBIBC_SRC_DIR)/ibc/gtkmm/image_view_base.o
+LIBIBC_OBJS	=
 LIBIBC_SOURCES	= $(LIBIBC_OBJS:.o=.cpp)
 LIBIBC_DEPENDS	= $(LIBIBC_SOURCES:.cpp=.d)
 
