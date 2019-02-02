@@ -139,9 +139,14 @@ int main(int argc, char *argv[])
   for (int y = 0; y < 480; y++)
     for (int x = 0; x < 640; x++)
     {
-      *bufPtr = (unsigned char)(x ^ y);
+      //*bufPtr = (unsigned char)(x ^ y);
+      *bufPtr = (unsigned char)(x & 0xFF);
       bufPtr++;
     }
+//imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_GrayScale);
+//imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet);
+//imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm);
+  imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet, 3);
 #endif
 
   imageData.markAsImageModified();
