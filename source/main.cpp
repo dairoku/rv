@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
       bufPtr++;
     }
 #endif
-#if 1
+#if 0
   ibc::gtkmm::ImageData   imageData;
   ibc::image::ImageType   imageType(ibc::image::ImageType::PIXEL_TYPE_MONO,
                                     ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
@@ -143,10 +143,40 @@ int main(int argc, char *argv[])
       *bufPtr = (unsigned char)(x & 0xFF);
       bufPtr++;
     }
-//imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_GrayScale);
-//imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet);
-//imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm);
-  imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet, 3);
+  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_GrayScale);
+  imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet);
+  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm);
+  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet, 3);
+  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm, 4);
+  imageData.mActiveConverter->setGain(2.0);
+  //imageData.mActiveConverter->setOffset(100);
+  imageData.mActiveConverter->setOffset(-128);
+  //imageData.mActiveConverter->setGamma(0.8);
+#endif
+#if 1
+  ibc::gtkmm::ImageData   imageData;
+  ibc::image::ImageType   imageType(ibc::image::ImageType::PIXEL_TYPE_MONO,
+                                    ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
+                                    ibc::image::ImageType::DATA_TYPE_16BIT);
+  ibc::image::ImageFormat imageFormat(imageType, 640, 480);
+  imageData.allocateImageBuffer(imageFormat);
+  unsigned short *bufPtr = (unsigned short *)imageData.getImageBufferPtr();
+  for (int y = 0; y < 480; y++)
+    for (int x = 0; x < 640; x++)
+    {
+      //*bufPtr = (unsigned char)(x ^ y);
+      *bufPtr = (unsigned short)((x * 100) & 0xFFFF);
+      bufPtr++;
+    }
+  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_GrayScale);
+  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet);
+  imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm);
+  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet, 3);
+  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm, 4);
+  imageData.mActiveConverter->setGain(2.0);
+  //imageData.mActiveConverter->setOffset(10000);
+  imageData.mActiveConverter->setOffset(-32768);
+  //imageData.mActiveConverter->setGamma(2.8);
 #endif
 
   imageData.markAsImageModified();
