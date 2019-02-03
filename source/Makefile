@@ -25,6 +25,12 @@ GLIB_CFLAGS		= `pkg-config --cflags gtkmm-3.0`
 GLIB_LDFLAGS	= `pkg-config --libs gtkmm-3.0`
 
 # ----------------------------------------------------------------------
+#  Macros for GTK Library
+# ----------------------------------------------------------------------
+BOOST_CFLAGS		= 
+BOOST_LDFLAGS		= -lboost_program_options
+
+# ----------------------------------------------------------------------
 #  Macros for Common part
 # ----------------------------------------------------------------------
 SOURCES	= $(RAWVIEW_SOURCES) $(LIBIBC_SOURCES)
@@ -38,8 +44,8 @@ VPATH	= $(RAWVIEW_DIR)
 # ----------------------------------------------------------------------
 CC			= g++
 LD			= $(CC)
-CFLAGS		= $(GLIB_CFLAGS) -MD -fpic
-LDFLAGS 	= $(GLIB_LDFLAGS)
+CFLAGS		= $(GLIB_CFLAGS) $(BOOST_CFLAGS) -MD -fpic
+LDFLAGS 	= $(GLIB_LDFLAGS) $(BOOST_LDFLAGS)
 INCLUDES	= -I /usr/include -I $(RAWVIEW_DIR) -I $(LIBIBC_INC_DIR)
 
 # ----------------------------------------------------------------------

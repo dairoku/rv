@@ -31,156 +31,210 @@
   \brief    
 */
 
-// Includes --------------------------------------------------------------------
+// Includes -------------------------------------------------------------------
+#include <math.h>
 #include <iostream>
 #include <string>
 #include <cstring>
-#include <math.h>
-#include <gtkmm.h>
-#include "ibc/gtkmm/image_view.h"
-#include "ibc/gtkmm/image_data.h"
+#include "rv.h"
 
-//#define DEBUG_TRACE(...)    printf(__VA_ARGS__)
-//#define VERBOSE_INFO(...)   printf(__VA_ARGS__)
-#define VERBOSE_INFO(...)
-#define DEBUG_TRACE(...)
-
-class MainWin : public Gtk::Window
+// -----------------------------------------------------------------------------
+// main
+// -----------------------------------------------------------------------------
+//
+int main(int argc, char *argv[])
 {
-public:
-  MainWin(ibc::gtkmm::ImageData *inImageDataPtr) :
-    m_box(Gtk::Orientation::ORIENTATION_VERTICAL , 0),
-    m_status_bar("Statusbar")
-  {
-    mImageDataPtr = inImageDataPtr;
-    mImageView.setImageDataPtr(inImageDataPtr);
-    m_scr_win.add(mImageView);
-    m_box.pack_start(m_scr_win, true, true, 0);
-    m_box.pack_end(m_status_bar, false, false, 0);
-    add(m_box);
-    resize(300, 300);
-    show_all_children();
-  }
-protected:
+  auto app = RVApplication::create();
+  return app->run(argc, argv);
+}
 
-private:
-  Gtk::Box            m_box;
-  Gtk::ScrolledWindow m_scr_win;
-  Gtk::Label          m_status_bar;
-  ibc::gtkmm::ImageView   mImageView;
-  ibc::gtkmm::ImageData   *mImageDataPtr;
-};
-
+// =============================================================================
+// RVApplication class
+// =============================================================================
+// -----------------------------------------------------------------------------
+// on_command_line
+// -----------------------------------------------------------------------------
 //  The following handler will be called after a standard gtk+ command line
 //  option parse process is finished
 //  Note that: the standard command line options are always removed before
 //  calling this handler from the command_line object by the caller
-int on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine>& command_line,
-                    Glib::RefPtr<Gtk::Application>& app)
+//
+int RVApplication::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine > &command_line)
 {
-  int argc = 0;
-  char** argv = command_line->get_arguments(argc);
+  boost::program_options::options_description desc("rv");
+  boost::program_options::positional_options_description  positional;
+  int width = 0, height = 0;
 
-  for (int i = 0; i < argc; ++i)
-  std::cout << "argv[" << i << "] = " << argv[i] << std::endl;
+  // Get argc and argv
+  int     argc = 0;
+  char  **argv = command_line->get_arguments(argc);
 
-  //if (argc != 1)
-  //  g_file_name.assign(argv[1]);
+  // Define command line options
+  desc.add_options()
+    ("input",     boost::program_options::value<std::vector <std::string>>()->required(), "Specify input files or directories")
+    ("width,x",   boost::program_options::value<int>(&width),   "Specify a width of the input image")
+    ("height,y",  boost::program_options::value<int>(&height),  "Specify a height of the input image")
+    ("type,t",    boost::program_options::value<std::string>(), "Specify a image type (default: RAW8)")
+    ("debug",     boost::program_options::value<int>(), "Specify a debug option (0: xor, 1: H gradation)")
+    ("help,h",    "Shows this help")
+    ;
+  positional.add("input", -1);
 
-  app->activate(); // NOTE: Without activate() the window won't be shown.
+  try
+  {
+    boost::program_options::store(
+      boost::program_options::command_line_parser(argc, argv).options(desc).positional(positional).run(),
+      mVarMap);
+    boost::program_options::notify(mVarMap);
+  }
+  catch (std::exception &ex)
+  {
+    std::cout << ex.what() << std::endl;
+    std::cout << std::endl;
+    std::cout << desc << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (mVarMap.count("help"))
+  {
+    std::cout << desc << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  std::vector<std::string> inputs = mVarMap["input"].as<std::vector<std::string>>();
+  std::cout << inputs[0]  << std::endl;
+
+  activate(); // NOTE: Without activate() the window won't be shown.
   return EXIT_SUCCESS;
 }
 
-int main(int argc, char *argv[])
+// -----------------------------------------------------------------------------
+// on_activate
+// -----------------------------------------------------------------------------
+void RVApplication::on_activate()
 {
-  // The command line arguments must be checked before Gtk::Application::run()
-  // is called. The Gio::APPLICATION_HANDLES_COMMAND_LINE flag and the
-  // on_command_line() signal handler are not necessary. This program is simpler
-  // without them, and with argc = 1 in the call to Gtk::Application::create().
-  // They are included to show a program with Gio::APPLICATION_HANDLES_COMMAND_LINE.
-  // Gio::APPLICATION_NON_UNIQUE makes it possible to run several instances of
-  // this application simultaneously.
-  auto app = Gtk::Application::create(argc, argv,
-      "org.gtkmm.example", Gio::APPLICATION_HANDLES_COMMAND_LINE | Gio::APPLICATION_NON_UNIQUE);
+  // allocate image buffer
+  // if (debug mode)
+  createTestPattern(&mImageData, 0);
 
-  // Note after = false.
-  // Only one signal handler is invoked. This signal handler must run before
-  // the default signal handler, or else it won't run at all.
-  app->signal_command_line().connect(sigc::bind(sigc::ptr_fun(&on_command_line), app), false);
+  mImageData.markAsImageModified();
 
+  // The application has been started, so let's show a window.
+  auto appwindow = create_appwindow();
+  appwindow->setImageDataptr(&mImageData);
+  appwindow->present();
+}
+
+// -----------------------------------------------------------------------------
+// createTestPattern
+// -----------------------------------------------------------------------------
+void RVApplication::createTestPattern(ibc::gtkmm::ImageData *inImageData, int inPattern)
+{
   // Create ImageData here
 #if 0
-  ibc::gtkmm::ImageData   imageData;
   ibc::image::ImageType   imageType(ibc::image::ImageType::PIXEL_TYPE_RGB,
                                     ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
                                     ibc::image::ImageType::DATA_TYPE_8BIT);
-  ibc::image::ImageFormat imageFormat(imageType, 640, 480);
-  imageData.allocateImageBuffer(imageFormat);
-  unsigned char *bufPtr = (unsigned char *)imageData.getImageBufferPtr();
-  for (int y = 0; y < 480; y++)
-    for (int x = 0; x < 640; x++)
-    {
-      *bufPtr = (unsigned char)(x ^ y);
-      bufPtr++;
-      *bufPtr = (unsigned char)(x ^ y);
-      bufPtr++;
-      *bufPtr = (unsigned char)(x ^ y);
-      bufPtr++;
-    }
 #endif
-#if 0
-  ibc::gtkmm::ImageData   imageData;
+#if 1
   ibc::image::ImageType   imageType(ibc::image::ImageType::PIXEL_TYPE_MONO,
                                     ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
                                     ibc::image::ImageType::DATA_TYPE_8BIT);
-  ibc::image::ImageFormat imageFormat(imageType, 640, 480);
-  imageData.allocateImageBuffer(imageFormat);
-  unsigned char *bufPtr = (unsigned char *)imageData.getImageBufferPtr();
-  for (int y = 0; y < 480; y++)
-    for (int x = 0; x < 640; x++)
-    {
-      //*bufPtr = (unsigned char)(x ^ y);
-      *bufPtr = (unsigned char)(x & 0xFF);
-      bufPtr++;
-    }
-  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_GrayScale);
-  imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet);
-  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm);
-  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet, 3);
-  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm, 4);
-  imageData.mActiveConverter->setGain(2.0);
-  //imageData.mActiveConverter->setOffset(100);
-  imageData.mActiveConverter->setOffset(-128);
-  //imageData.mActiveConverter->setGamma(0.8);
 #endif
-#if 1
-  ibc::gtkmm::ImageData   imageData;
+#if 0
   ibc::image::ImageType   imageType(ibc::image::ImageType::PIXEL_TYPE_MONO,
                                     ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
                                     ibc::image::ImageType::DATA_TYPE_16BIT);
-  ibc::image::ImageFormat imageFormat(imageType, 640, 480);
-  imageData.allocateImageBuffer(imageFormat);
-  unsigned short *bufPtr = (unsigned short *)imageData.getImageBufferPtr();
-  for (int y = 0; y < 480; y++)
-    for (int x = 0; x < 640; x++)
-    {
-      //*bufPtr = (unsigned char)(x ^ y);
-      *bufPtr = (unsigned short)((x * 100) & 0xFFFF);
-      bufPtr++;
-    }
-  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_GrayScale);
-  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet);
-  imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm);
-  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet, 3);
-  //imageData.mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm, 4);
-  imageData.mActiveConverter->setGain(2.0);
-  //imageData.mActiveConverter->setOffset(10000);
-  imageData.mActiveConverter->setOffset(-32768);
-  //imageData.mActiveConverter->setGamma(2.8);
 #endif
+  ibc::image::ImageFormat imageFormat(imageType, 640, 480);
+  inImageData->allocateImageBuffer(imageFormat);
+  //inImageData->mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_GrayScale);
+  //inImageData->mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet);
+  inImageData->mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm);
+  //inImageData->mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet, 3);
+  //inImageData->mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm, 4);
+  //inImageData->mActiveConverter->setGain(2.0);
+  //inImageData->mActiveConverter->setOffset(10000);
+  //inImageData->mActiveConverter->setOffset(-128);
+  //inImageData->mActiveConverter->setGamma(2.8);
 
-  imageData.markAsImageModified();
+  fillTestPattern(inImageData, inPattern);
+}
 
-  MainWin window(&imageData);
-  return app->run(window);
+// -----------------------------------------------------------------------------
+// fillTestPattern
+// -----------------------------------------------------------------------------
+void RVApplication::fillTestPattern(ibc::gtkmm::ImageData *inImageData, int inPattern)
+{
+  if (inImageData->getImageType().mPixelType == ibc::image::ImageType::PIXEL_TYPE_MONO &&
+      inImageData->getImageType().mDataType  == ibc::image::ImageType::DATA_TYPE_8BIT)
+  {
+    unsigned char *bufPtr = (unsigned char *)inImageData->getImageBufferPtr();
+    for (int y = 0; y < inImageData->getHeight(); y++)
+      for (int x = 0; x < inImageData->getWidth(); x++)
+      {
+        switch (inPattern)
+        {
+          case 0:
+            *bufPtr = (unsigned char)(x ^ y);
+            break;
+          case 1:
+            *bufPtr = (unsigned char)(x & 0xFF);
+            break;
+          case 2:
+            *bufPtr = (unsigned char)(y & 0xFF);
+            break;
+          case 3:
+            *bufPtr = (unsigned char)((x+y) & 0xFF);
+            break;
+        }
+        bufPtr++;
+      }
+    return; 
+  }
+  if (inImageData->getImageType().mPixelType == ibc::image::ImageType::PIXEL_TYPE_MONO &&
+      inImageData->getImageType().mDataType  == ibc::image::ImageType::DATA_TYPE_16BIT)
+  {
+    unsigned short *bufPtr = (unsigned short *)inImageData->getImageBufferPtr();
+    for (int y = 0; y < inImageData->getHeight(); y++)
+      for (int x = 0; x < inImageData->getWidth(); x++)
+      {
+        switch (inPattern)
+        {
+          case 0:
+            *bufPtr = (unsigned short)(x ^ y);
+            break;
+          case 1:
+            *bufPtr = (unsigned short)(x & 0xFFFF);
+            break;
+          case 2:
+            *bufPtr = (unsigned short)(y & 0xFFFF);
+            break;
+          case 3:
+            *bufPtr = (unsigned short)((x+y) & 0xFFFF);
+            break;
+        }
+        bufPtr++;
+      }
+    return; 
+  }
+}
+
+void RVApplication::on_open(const Gio::Application::type_vec_files& files,
+  const Glib::ustring& /* hint */)
+{
+  // The application has been asked to open some files,
+  // so let's open a new view for each one.
+  /*RVWindow* appwindow = nullptr;
+  auto windows = get_windows();
+  if (windows.size() > 0)
+    appwindow = dynamic_cast<RVWindow*>(windows[0]);
+
+  if (!appwindow)
+    appwindow = create_appwindow();
+
+  for (const auto& file : files)
+    appwindow->open_file_view(file);
+
+  appwindow->present();*/
 }
