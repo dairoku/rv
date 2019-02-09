@@ -44,12 +44,12 @@
 //
 int main(int argc, char *argv[])
 {
-  auto app = RVApplication::create();
+  auto app = rvApplication::create();
   return app->run(argc, argv);
 }
 
 // =============================================================================
-// RVApplication class
+// rvApplication class
 // =============================================================================
 // -----------------------------------------------------------------------------
 // on_command_line
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 //  Note that: the standard command line options are always removed before
 //  calling this handler from the command_line object by the caller
 //
-int RVApplication::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine > &command_line)
+int rvApplication::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine > &command_line)
 {
   boost::program_options::options_description desc("rv");
   boost::program_options::positional_options_description  positional;
@@ -71,12 +71,18 @@ int RVApplication::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLin
 
   // Define command line options
   desc.add_options()
-    ("input",     boost::program_options::value<std::vector <std::string>>()->required(), "Specify input files or directories")
-    ("width,x",   boost::program_options::value<int>(&width),   "Specify a width of the input image")
-    ("height,y",  boost::program_options::value<int>(&height),  "Specify a height of the input image")
-    ("type,t",    boost::program_options::value<std::string>(), "Specify a image type (default: RAW8)")
-    ("debug",     boost::program_options::value<int>(), "Specify a debug option (0: xor, 1: H gradation)")
-    ("help,h",    "Shows this help")
+//  ("input",       boost::program_options::value<std::vector <std::string>>()->required(), "Specify input files or directories")
+    ("input",       boost::program_options::value<std::vector <std::string>>(), "Specify input files or directories")
+    ("width,x",     boost::program_options::value<int>(&width),   "Specify a width of the input image")
+    ("height,y",    boost::program_options::value<int>(&height),  "Specify a height of the input image")
+    ("type,t",      boost::program_options::value<std::string>(), "Specify a image type (default: MONO)")
+    ("data,d",      boost::program_options::value<std::string>(), "Specify a data type (default: 8BIT)")
+    ("colormap,c",  boost::program_options::value<std::string>(), "Specify a color map (default: GrayScale)")
+    ("multimap,m",  boost::program_options::value<int>(), "Specify a color map multi-map num (default: 1)")
+    ("gain,g",      boost::program_options::value<double>(), "Specify a gain (default: 1.0)")
+    ("offset,o",    boost::program_options::value<double>(), "Specify a offset (default: 0.0)")
+    ("debug",       boost::program_options::value<int>(), "Specify a debug option (0: xor, 1: H gradation)")
+    ("help,h",      "Shows this help")
     ;
   positional.add("input", -1);
 
@@ -101,8 +107,8 @@ int RVApplication::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLin
     return EXIT_FAILURE;
   }
 
-  std::vector<std::string> inputs = mVarMap["input"].as<std::vector<std::string>>();
-  std::cout << inputs[0]  << std::endl;
+  //std::vector<std::string> inputs = mVarMap["input"].as<std::vector<std::string>>();
+  //std::cout << inputs[0]  << std::endl;
 
   activate(); // NOTE: Without activate() the window won't be shown.
   return EXIT_SUCCESS;
@@ -111,12 +117,57 @@ int RVApplication::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLin
 // -----------------------------------------------------------------------------
 // on_activate
 // -----------------------------------------------------------------------------
-void RVApplication::on_activate()
+void rvApplication::on_activate()
 {
-  // allocate image buffer
-  // if (debug mode)
-  createTestPattern(&mImageData, 0);
+  if (mVarMap.count("debug"))
+  {
+    int pattern = mVarMap["debug"].as<int>();
+    ibc::image::ImageType::PixelType pixelType = ibc::image::ImageType::PIXEL_TYPE_MONO;
+    ibc::image::ImageType::DataType dataType = ibc::image::ImageType::DATA_TYPE_8BIT;
+    int width = 640;
+    int height = 480;
+    ibc::image::ColorMap::ColorMapIndex colorMapIndex = ibc::image::ColorMap::CMIndex_GrayScale;
+    int multiMap = 1;
+    
+    if (mVarMap.count("width"))
+    {
+      width = mVarMap["width"].as<int>();
+    }
+    if (mVarMap.count("height"))
+    {
+      height = mVarMap["height"].as<int>();
+    }
+    if (mVarMap.count("type"))
+    {
+      std::string str = mVarMap["type"].as<std::string>();
+      pixelType = ibc::image::ImageType::stringToPixelType(str.c_str(), pixelType);
+    }
+    if (mVarMap.count("data"))
+    {
+      std::string str = mVarMap["data"].as<std::string>();
+      dataType = ibc::image::ImageType::stringToDataType(str.c_str(), dataType);
+    }
+    if (mVarMap.count("colormap"))
+    {
+      std::string str = mVarMap["colormap"].as<std::string>();
+      colorMapIndex = ibc::image::ColorMap::stringToColorMapIndex(str.c_str(), colorMapIndex);
+    }
+    if (mVarMap.count("multimap"))
+    {
+      multiMap = mVarMap["multimap"].as<int>();
+    }
+    if (mVarMap.count("gain"))
+    {
+      mGain = mVarMap["gain"].as<double>();
+    }
+    if (mVarMap.count("offset"))
+    {
+      mOffset = mVarMap["offset"].as<double>();
+    }
 
+    createTestPattern(&mImageData, pattern, pixelType, dataType,
+                      width, height, colorMapIndex, multiMap, mGain, mOffset);
+  }
   mImageData.markAsImageModified();
 
   // The application has been started, so let's show a window.
@@ -128,35 +179,24 @@ void RVApplication::on_activate()
 // -----------------------------------------------------------------------------
 // createTestPattern
 // -----------------------------------------------------------------------------
-void RVApplication::createTestPattern(ibc::gtkmm::ImageData *inImageData, int inPattern)
+void rvApplication::createTestPattern(ibc::gtkmm::ImageData *inImageData,
+    int inPattern,
+    ibc::image::ImageType::PixelType inPixelType,
+    ibc::image::ImageType::DataType inDataType,
+    int inWidth, int inHeight,
+    ibc::image::ColorMap::ColorMapIndex inColorMapIndex,
+    int inColorMapMultiNum,
+    double inGain, double inOffsset)
 {
   // Create ImageData here
-#if 0
-  ibc::image::ImageType   imageType(ibc::image::ImageType::PIXEL_TYPE_RGB,
+  ibc::image::ImageType   imageType(inPixelType,
                                     ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
-                                    ibc::image::ImageType::DATA_TYPE_8BIT);
-#endif
-#if 1
-  ibc::image::ImageType   imageType(ibc::image::ImageType::PIXEL_TYPE_MONO,
-                                    ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
-                                    ibc::image::ImageType::DATA_TYPE_8BIT);
-#endif
-#if 0
-  ibc::image::ImageType   imageType(ibc::image::ImageType::PIXEL_TYPE_MONO,
-                                    ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
-                                    ibc::image::ImageType::DATA_TYPE_16BIT);
-#endif
-  ibc::image::ImageFormat imageFormat(imageType, 640, 480);
+                                    inDataType);
+  ibc::image::ImageFormat imageFormat(imageType, inWidth, inHeight);
   inImageData->allocateImageBuffer(imageFormat);
-  //inImageData->mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_GrayScale);
-  //inImageData->mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet);
-  inImageData->mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm);
-  //inImageData->mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_Jet, 3);
-  //inImageData->mActiveConverter->setColorMapIndex(ibc::image::ColorMap::CMIndex_CoolWarm, 4);
-  //inImageData->mActiveConverter->setGain(2.0);
-  //inImageData->mActiveConverter->setOffset(10000);
-  //inImageData->mActiveConverter->setOffset(-128);
-  //inImageData->mActiveConverter->setGamma(2.8);
+  inImageData->mActiveConverter->setColorMapIndex(inColorMapIndex, inColorMapMultiNum);
+  inImageData->mActiveConverter->setGain(inGain);
+  inImageData->mActiveConverter->setOffset(inOffsset);
 
   fillTestPattern(inImageData, inPattern);
 }
@@ -164,7 +204,7 @@ void RVApplication::createTestPattern(ibc::gtkmm::ImageData *inImageData, int in
 // -----------------------------------------------------------------------------
 // fillTestPattern
 // -----------------------------------------------------------------------------
-void RVApplication::fillTestPattern(ibc::gtkmm::ImageData *inImageData, int inPattern)
+void rvApplication::fillTestPattern(ibc::gtkmm::ImageData *inImageData, int inPattern)
 {
   if (inImageData->getImageType().mPixelType == ibc::image::ImageType::PIXEL_TYPE_MONO &&
       inImageData->getImageType().mDataType  == ibc::image::ImageType::DATA_TYPE_8BIT)
@@ -184,7 +224,8 @@ void RVApplication::fillTestPattern(ibc::gtkmm::ImageData *inImageData, int inPa
           case 2:
             *bufPtr = (unsigned char)(y & 0xFF);
             break;
-          case 3:
+          default:
+          //case 3:
             *bufPtr = (unsigned char)((x+y) & 0xFF);
             break;
         }
@@ -220,15 +261,15 @@ void RVApplication::fillTestPattern(ibc::gtkmm::ImageData *inImageData, int inPa
   }
 }
 
-void RVApplication::on_open(const Gio::Application::type_vec_files& files,
+void rvApplication::on_open(const Gio::Application::type_vec_files& files,
   const Glib::ustring& /* hint */)
 {
   // The application has been asked to open some files,
   // so let's open a new view for each one.
-  /*RVWindow* appwindow = nullptr;
+  /*rvWindow* appwindow = nullptr;
   auto windows = get_windows();
   if (windows.size() > 0)
-    appwindow = dynamic_cast<RVWindow*>(windows[0]);
+    appwindow = dynamic_cast<rvWindow*>(windows[0]);
 
   if (!appwindow)
     appwindow = create_appwindow();

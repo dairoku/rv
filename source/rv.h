@@ -45,15 +45,15 @@
 #define DEBUG_TRACE(...)
 
 // -----------------------------------------------------------------------------
-// RVWindow class
+// rvWindow class
 // -----------------------------------------------------------------------------
-class RVWindow : public Gtk::Window
+class rvWindow : public Gtk::Window
 {
 public:
   // ---------------------------------------------------------------------------
-  // RVWindow
+  // rvWindow
   // ---------------------------------------------------------------------------
-  RVWindow() :
+  rvWindow() :
     m_box(Gtk::Orientation::ORIENTATION_VERTICAL , 0),
     m_status_bar("Statusbar")
   {
@@ -84,28 +84,31 @@ private:
 };
 
 // -----------------------------------------------------------------------------
-// RVApplication class
+// rvApplication class
 // -----------------------------------------------------------------------------
-class RVApplication: public Gtk::Application
+class rvApplication: public Gtk::Application
 {
 public:
-  static Glib::RefPtr<RVApplication> create()
+  static Glib::RefPtr<rvApplication> create()
   {
-    return Glib::RefPtr<RVApplication>(new RVApplication());
+    return Glib::RefPtr<rvApplication>(new rvApplication());
   }
 
 protected:
   boost::program_options::variables_map       mVarMap;
   ibc::gtkmm::ImageData   mImageData;
+  double mGain, mOffset;
 
   // ---------------------------------------------------------------------------
-  // RVApplication
+  // rvApplication
   // ---------------------------------------------------------------------------
-  RVApplication() :
+  rvApplication() :
     Gtk::Application("org.gtkmm.examples.application",
                      Gio::APPLICATION_HANDLES_COMMAND_LINE | Gio::APPLICATION_NON_UNIQUE)
     //Gtk::Application("org.gtkmm.examples.application", Gio::APPLICATION_HANDLES_OPEN)
   {
+    mGain = 1.0;
+    mOffset = 0.0;
   }
 
   // Member functions ----------------------------------------------------------
@@ -114,15 +117,22 @@ protected:
   void on_open(const Gio::Application::type_vec_files& files, const Glib::ustring& hint) override;
 
   // Debug functions -----------------------------------------------------------
-  void createTestPattern(ibc::gtkmm::ImageData *inImageData, int inPattern);
+  void createTestPattern(ibc::gtkmm::ImageData *inImageData,
+      int inPattern,
+      ibc::image::ImageType::PixelType inPixelType,
+      ibc::image::ImageType::DataType inDataType,
+      int inWidth, int inHeight,
+      ibc::image::ColorMap::ColorMapIndex inColorMapIndex,
+      int inColorMapMultiNum,
+      double inGain, double inOffsset);
   void fillTestPattern(ibc::gtkmm::ImageData *inImageData, int inPattern);
 
   // ---------------------------------------------------------------------------
   // create_appwindow
   // ---------------------------------------------------------------------------
-  RVWindow  *create_appwindow()
+  rvWindow  *create_appwindow()
   {
-    auto appwindow = new RVWindow();
+    auto appwindow = new rvWindow();
   
     // Make sure that the application runs for as long this window is still open.
     add_window(*appwindow);
@@ -135,7 +145,7 @@ protected:
   
     // Delete the window when it is hidden.
     appwindow->signal_hide().connect(sigc::bind<Gtk::Window*>(sigc::mem_fun(*this,
-      &RVApplication::on_hide_window), appwindow));
+      &rvApplication::on_hide_window), appwindow));
   
     return appwindow;
   }
