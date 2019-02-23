@@ -45,7 +45,7 @@ VPATH	= $(RAWVIEW_DIR)
 CC			= g++
 LD			= $(CC)
 CFLAGS		= $(GLIB_CFLAGS) $(BOOST_CFLAGS) -MD -fpic
-LDFLAGS 	= $(GLIB_LDFLAGS) $(BOOST_LDFLAGS)
+LDFLAGS 	= $(GLIB_LDFLAGS) $(BOOST_LDFLAGS) -lstdc++fs
 INCLUDES	= -I /usr/include -I $(RAWVIEW_DIR) -I $(LIBIBC_INC_DIR)
 
 # ----------------------------------------------------------------------

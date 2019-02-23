@@ -97,6 +97,7 @@ public:
 protected:
   boost::program_options::variables_map       mVarMap;
   ibc::gtkmm::ImageData   mImageData;
+  unsigned char *mData;
   double mGain, mOffset;
 
   // ---------------------------------------------------------------------------
@@ -109,6 +110,7 @@ protected:
   {
     mGain = 1.0;
     mOffset = 0.0;
+    mData = NULL;
   }
 
   // Member functions ----------------------------------------------------------

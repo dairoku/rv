@@ -34,9 +34,13 @@
 // Includes -------------------------------------------------------------------
 #include <math.h>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <cstring>
+#include <experimental/filesystem>
 #include "rv.h"
+
+namespace fs = std::experimental::filesystem;
 
 // -----------------------------------------------------------------------------
 // main
@@ -107,8 +111,11 @@ int rvApplication::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLin
     return EXIT_FAILURE;
   }
 
-  //std::vector<std::string> inputs = mVarMap["input"].as<std::vector<std::string>>();
-  //std::cout << inputs[0]  << std::endl;
+  if (mVarMap.count("input") == 0 && mVarMap.count("debug") == 0)
+  {
+    std::cout << "No input file is specified." << std::endl;
+    return EXIT_FAILURE;
+  }
 
   activate(); // NOTE: Without activate() the window won't be shown.
   return EXIT_SUCCESS;
@@ -119,55 +126,98 @@ int rvApplication::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLin
 // -----------------------------------------------------------------------------
 void rvApplication::on_activate()
 {
+  ibc::image::ImageType::PixelType pixelType = ibc::image::ImageType::PIXEL_TYPE_MONO;
+  ibc::image::ImageType::DataType dataType = ibc::image::ImageType::DATA_TYPE_8BIT;
+  int width = 640;
+  int height = 480;
+  ibc::image::ColorMap::ColorMapIndex colorMapIndex = ibc::image::ColorMap::CMIndex_GrayScale;
+  int multiMap = 1;
+
+  if (mVarMap.count("width"))
+  {
+    width = mVarMap["width"].as<int>();
+  }
+  if (mVarMap.count("height"))
+  {
+    height = mVarMap["height"].as<int>();
+  }
+  if (mVarMap.count("type"))
+  {
+    std::string str = mVarMap["type"].as<std::string>();
+    pixelType = ibc::image::ImageType::stringToPixelType(str.c_str(), pixelType);
+  }
+  if (mVarMap.count("data"))
+  {
+    std::string str = mVarMap["data"].as<std::string>();
+    dataType = ibc::image::ImageType::stringToDataType(str.c_str(), dataType);
+  }
+  if (mVarMap.count("colormap"))
+  {
+    std::string str = mVarMap["colormap"].as<std::string>();
+    colorMapIndex = ibc::image::ColorMap::stringToColorMapIndex(str.c_str(), colorMapIndex);
+  }
+  if (mVarMap.count("multimap"))
+  {
+    multiMap = mVarMap["multimap"].as<int>();
+  }
+  if (mVarMap.count("gain"))
+  {
+    mGain = mVarMap["gain"].as<double>();
+  }
+  if (mVarMap.count("offset"))
+  {
+    mOffset = mVarMap["offset"].as<double>();
+  }
+
   if (mVarMap.count("debug"))
   {
     int pattern = mVarMap["debug"].as<int>();
-    ibc::image::ImageType::PixelType pixelType = ibc::image::ImageType::PIXEL_TYPE_MONO;
-    ibc::image::ImageType::DataType dataType = ibc::image::ImageType::DATA_TYPE_8BIT;
-    int width = 640;
-    int height = 480;
-    ibc::image::ColorMap::ColorMapIndex colorMapIndex = ibc::image::ColorMap::CMIndex_GrayScale;
-    int multiMap = 1;
     
-    if (mVarMap.count("width"))
-    {
-      width = mVarMap["width"].as<int>();
-    }
-    if (mVarMap.count("height"))
-    {
-      height = mVarMap["height"].as<int>();
-    }
-    if (mVarMap.count("type"))
-    {
-      std::string str = mVarMap["type"].as<std::string>();
-      pixelType = ibc::image::ImageType::stringToPixelType(str.c_str(), pixelType);
-    }
-    if (mVarMap.count("data"))
-    {
-      std::string str = mVarMap["data"].as<std::string>();
-      dataType = ibc::image::ImageType::stringToDataType(str.c_str(), dataType);
-    }
-    if (mVarMap.count("colormap"))
-    {
-      std::string str = mVarMap["colormap"].as<std::string>();
-      colorMapIndex = ibc::image::ColorMap::stringToColorMapIndex(str.c_str(), colorMapIndex);
-    }
-    if (mVarMap.count("multimap"))
-    {
-      multiMap = mVarMap["multimap"].as<int>();
-    }
-    if (mVarMap.count("gain"))
-    {
-      mGain = mVarMap["gain"].as<double>();
-    }
-    if (mVarMap.count("offset"))
-    {
-      mOffset = mVarMap["offset"].as<double>();
-    }
-
     createTestPattern(&mImageData, pattern, pixelType, dataType,
                       width, height, colorMapIndex, multiMap, mGain, mOffset);
+
+    mImageData.markAsImageModified();
+  
+    // The application has been started, so let's show a window.
+    auto appwindow = create_appwindow();
+    appwindow->setImageDataptr(&mImageData);
+    appwindow->present();
+    return;
   }
+
+  // Open raw file
+  std::vector<std::string> inputs = mVarMap["input"].as<std::vector<std::string>>();
+  fs::path   path(inputs[0]);
+  if (fs::exists(path) == false)
+  {
+    std::cout << "Can't find file: ";
+    std::cout << inputs[0];
+    std::cout << std::endl;
+    return;
+  }
+
+  size_t fileSize = fs::file_size(path);
+  mData = new unsigned char[fileSize];
+  if (mData == NULL)
+  {
+    std::cout << "Can't allocate data buffer: ";
+    std::cout << fileSize;
+    std::cout << std::endl;
+    return;
+  }
+
+  //std::ifstream ifs(path, std::ios_base::binary);
+  std::ifstream   ifs(path, std::ios::binary);
+  ifs.read((char *)mData, fileSize);
+
+  ibc::image::ImageType   imageType(pixelType,
+                                    ibc::image::ImageType::BUFFER_TYPE_PIXEL_ALIGNED,
+                                    dataType);
+  ibc::image::ImageFormat imageFormat(imageType, width, height);
+  mImageData.setImageBufferPtr(mData, imageFormat);
+  mImageData.mActiveConverter->setColorMapIndex(colorMapIndex, multiMap);
+  mImageData.mActiveConverter->setGain(mGain);
+  mImageData.mActiveConverter->setOffset(mOffset);
   mImageData.markAsImageModified();
 
   // The application has been started, so let's show a window.
